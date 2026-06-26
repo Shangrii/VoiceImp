@@ -1,0 +1,20 @@
+# Reconocimiento de voz (STT)
+faster-whisper>=1.2
+
+# Audio
+sounddevice>=0.5
+soundfile>=0.12
+numpy>=2
+
+# Interfaz y entrada
+customtkinter>=5.2
+keyboard>=0.13
+pywin32>=306          # voces SAPI de Windows
+
+# Voces online (sin clave)
+edge-tts>=6           # voces neurales de Microsoft
+requests>=2.34        # TikTok TTS
+
+# Aceleracion GPU para Whisper (NVIDIA CUDA 12 / cuDNN 9). Opcional: sin esto corre en CPU.
+nvidia-cublas-cu12
+nvidia-cudnn-cu12

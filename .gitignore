@@ -1,0 +1,26 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Build output / installer (recipes VoiceImp.spec and VoiceImp.iss are tracked)
+build/
+dist/
+installer/
+
+# Local config (may contain your device names)
+config.json
+
+# Large models and binaries (download separately, see README)
+voices/*.onnx
+voices/*.onnx.json
+piper/
+models/
+
+# System
+Thumbs.db
+desktop.ini
