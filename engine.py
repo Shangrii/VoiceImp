@@ -41,6 +41,10 @@ import ctranslate2  # noqa: E402
 
 
 def cuda_available() -> bool:
+    # The packaged build ships without the (multi-GB) NVIDIA CUDA libraries, so it
+    # runs on CPU. GPU is used when running from source (run.bat).
+    if getattr(sys, "frozen", False):
+        return False
     try:
         return ctranslate2.get_cuda_device_count() > 0
     except Exception:
@@ -192,26 +196,30 @@ class VoiceEngine:
     def load_model(self):
         from faster_whisper import WhisperModel
 
-        want_gpu = self.cfg.get("use_gpu", True) and cuda_available()
-        device = "cuda" if want_gpu else "cpu"
-        compute = self.cfg.get("whisper_compute_type", "auto")
-        if compute == "auto":
-            compute = "float16" if device == "cuda" else "int8"
         model_name = self.cfg.get("whisper_model", "small")
         local = ROOT / "models" / f"faster-whisper-{model_name}"
         model_id = str(local) if (local / "model.bin").exists() else model_name
 
-        self.on_info(f"Loading Whisper '{model_name}' on {device.upper()} ({compute})...")
-        try:
-            self._model = WhisperModel(model_id, device=device, compute_type=compute)
-        except Exception as exc:
-            self.on_info(f"Failed on {device} ({exc}); falling back to CPU/int8.")
-            self._model = WhisperModel(model_id, device="cpu", compute_type="int8")
-            device = "cpu"
-        warm = np.zeros(SAMPLE_RATE_IN, dtype=np.float32)
-        list(self._model.transcribe(warm, language=self.cfg.get("language", "es"))[0])
-        self.on_info(f"Whisper ready on {device.upper()}.")
-        return device
+        def _load(device, compute):
+            m = WhisperModel(model_id, device=device, compute_type=compute)
+            # Warm up so the device actually runs (forces any CUDA libs to load now).
+            warm = np.zeros(SAMPLE_RATE_IN, dtype=np.float32)
+            list(m.transcribe(warm, language=self.cfg.get("language", "es"))[0])
+            return m
+
+        if self.cfg.get("use_gpu", True) and cuda_available():
+            try:
+                self.on_info(f"Loading Whisper '{model_name}' on GPU (float16)...")
+                self._model = _load("cuda", "float16")
+                self.on_info("Whisper ready on GPU.")
+                return "cuda"
+            except Exception as exc:
+                self.on_info(f"GPU not available ({exc}); using CPU.")
+
+        self.on_info(f"Loading Whisper '{model_name}' on CPU (int8)...")
+        self._model = _load("cpu", "int8")
+        self.on_info("Whisper ready on CPU.")
+        return "cpu"
 
     def _prepare(self):
         tts.validate(self.cfg)
